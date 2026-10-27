@@ -28,22 +28,30 @@ OctoFit Tracker is a three-tier application for a school fitness program. The st
 
 ## Implementation decisions
 
-Record your plan here before editing code.
+- **Presentation tier decision:** Keep page components focused on rendering and user interaction. Use the shared API client for requests, and give each capability consistent accessible loading, empty, and error states.
+- **Logic tier decision:** Keep HTTP handling and request validation in Express routes, with capability logic in backend services where appropriate. Return deliberate 4xx responses for invalid inputs and unknown users; do not allow malformed IDs to surface as cast-error 500s. Do not add authentication.
+- **Data tier decision:** Use Mongoose schemas to enforce required identity, goal, team, activity, and workout fields and appropriate references/defaults. Keep seeding additive and idempotent so existing unrelated records are preserved.
+- **Activity tracking approach:** Validate required fields, ID format, and user/team existence before creating an activity. Compute points on the server using the established scoring rule, assign the occurrence date on creation, and return the persisted activity in the same shape used by the list endpoint.
+- **Team management approach:** Create and list teams using the submitted name and mascot, preserve the members array, and return `400` when the required name is absent.
+- **Leaderboard approach:** Derive each team's total from its activity points, order totals highest first, and assign ranks starting at 1 in the returned order.
+- **Workout suggestions approach:** Find the user by email, prefer matching workouts to the user's fitness goal, and use recent activity as a relevant focus when appropriate. Include a human-readable reason; return a deliberate 4xx for an unknown email.
 
-- Presentation tier decision:
-- Logic tier decision:
-- Data tier decision:
-- Activity tracking approach:
-- Team management approach:
-- Leaderboard approach:
-- Workout suggestions approach:
+## Test plan and current results
 
-## Test plan
+Run the focused contract tests after each tier change, then run both builds as final checks. Results below reflect the commands run on 2026-10-27.
 
-Record the commands you run and what each failure means.
-
-- Data-tier command: `npm run test:data --prefix octofit-tracker/backend`
-- API command: `npm run test:api --prefix octofit-tracker/backend`
-- Frontend command: `npm test --prefix octofit-tracker/frontend`
-- Backend build command: `npm run build --prefix octofit-tracker/backend`
-- Frontend build command: `npm run build --prefix octofit-tracker/frontend`
+- **Data-tier command:** `npm run test:data --prefix octofit-tracker/backend`
+  - **Result:** 4 failed, 1 passed. Required-field validation is missing for User, Team, Activity, and Workout. The seed/idempotency test passed.
+  - **Failure meaning:** The data schemas do not yet enforce the required fields in the data contract.
+- **API command:** `npm run test:api --prefix octofit-tracker/backend`
+  - **Result:** 4 failed. Invalid activity and team requests returned `501` instead of `400`; the leaderboard returned an empty list; the first workout suggestion did not match the user's goal/activity.
+  - **Failure meaning:** API handlers are incomplete or do not yet satisfy validation, aggregation, and recommendation behavior.
+- **Frontend command:** `npm test --prefix octofit-tracker/frontend`
+  - **Result:** 15 failed. The tests could not find rendered API data or the expected workout-suggestion request, and the required loading, empty, and accessible error states were missing.
+  - **Failure meaning:** Presentation components are not yet wired to meet the API rendering and request-state contracts.
+- **Backend build command:** `npm run build --prefix octofit-tracker/backend`
+  - **Result:** Not run in this pass.
+  - **Failure meaning:** A failure would indicate backend TypeScript compilation or type errors.
+- **Frontend build command:** `npm run build --prefix octofit-tracker/frontend`
+  - **Result:** Not run in this pass.
+  - **Failure meaning:** A failure would indicate frontend TypeScript or Vite production-build errors.
